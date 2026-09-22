@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>훈이네 과일 - 스마트 마진 & 판매가 계산기</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 font-sans text-slate-800">
+
+    <div class="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
+        
+        <!-- 상단 헤더 -->
+        <header class="bg-gradient-to-r from-emerald-600 to-teal-700 text-white p-6 rounded-2xl shadow-lg flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-black tracking-tight flex items-center gap-2">
+                    🍎 훈이네 과일 <span class="text-sm font-normal bg-emerald-800 px-3 py-1 rounded-full">이커머스 마진 대시보드</span>
+                </h1>
+                <p class="text-emerald-100 text-sm mt-1">공통 수수료 및 품목별 맞춤 수수료를 반영한 실시간 마진 및 판매가 자동 계산기</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="saveData()" class="bg-white text-emerald-700 px-4 py-2 rounded-xl font-bold text-sm shadow hover:bg-emerald-50 transition">💾 저장하기</button>
+                <button onclick="exportToCSV()" class="bg-emerald-800 text-white px-4 py-2 rounded-xl font-bold text-sm shadow hover:bg-emerald-900 transition">📊 엑셀(CSV) 다운로드</button>
+            </div>
+        </header>
+
+        <!-- 요약 지표 (KPI Cards) -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-400 uppercase">전체 등록 품목</p>
+                    <h3 id="kpiTotalCount" class="text-2xl font-bold text-slate-700 mt-1">0개</h3>
+                </div>
+                <div class="w-12 h-12 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center text-xl font-bold">📦</div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-400 uppercase">총 예상 매출액</p>
+                    <h3 id="kpiTotalSales" class="text-2xl font-bold text-slate-700 mt-1">0원</h3>
+                </div>
+                <div class="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-xl font-bold">💰</div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-400 uppercase">총 예상 순마진</p>
+                    <h3 id="kpiTotalMargin" class="text-2xl font-bold text-pink-600 mt-1">0원</h3>
+                </div>
+                <div class="w-12 h-12 bg-pink-50 text-pink-600 rounded-xl flex items-center justify-center text-xl font-bold">💎</div>
+            </div>
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200 flex items-center justify-between">
+                <div>
+                    <p class="text-xs font-semibold text-slate-400 uppercase">평균 마진율</p>
+                    <h3 id="kpiAvgMarginRate" class="text-2xl font-bold text-amber-600 mt-1">0.0%</h3>
+                </div>
+                <div class="w-12 h-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center text-xl font-bold">📈</div>
+            </div>
+        </div>
+
+        <!-- 탭 네비게이션 -->
+        <div class="flex border-b border-slate-200 gap-4">
+            <button onclick="switchTab('common')" id="tabBtn-common" class="pb-3 px-4 font-bold text-emerald-600 border-b-2 border-emerald-600 transition">📦 공통 계산기 (기본 수수료)</button>
+            <button onclick="switchTab('potato')" id="tabBtn-potato" class="pb-3 px-4 font-bold text-slate-400 hover:text-slate-600 transition">🥔 감자/고구마 전용</button>
+        </div>
+
+        <!-- 계산기 본체 카드 -->
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+            
+            <!-- 1. 공통 계산기 섹션 -->
+            <div id="section-common" class="p-6 space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50 p-4 rounded-xl border">
+                    <div class="flex items-center gap-3">
+                        <span class="font-bold text-slate-700">⚙️ 공통 판매 수수료율:</span>
+                        <input type="number" id="commonCommission" value="11.66" step="0.01" class="w-28 p-2 border rounded-lg text-right font-bold bg-white" oninput="calculateAll()">
+                        <span class="text-sm text-slate-500">%</span>
+                    </div>
+                    <button onclick="addRow('common')" class="bg-slate-800 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-slate-700 transition">+ 품목 행 추가</button>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full border-collapse text-sm text-center">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-700 font-bold border-b">
+                                <th class="p-3">품목명</th>
+                                <th class="p-3">옵션</th>
+                                <th class="p-3">공급가 (원)</th>
+                                <th class="p-3 bg-blue-50 text-blue-800">최종판매가(쿠폰후)</th>
+                                <th class="p-3 bg-pink-50 text-pink-800">순마진 (원)</th>
+                                <th class="p-3 bg-pink-50 text-pink-800">마진율 (%)</th>
+                                <th class="p-3 bg-emerald-50 text-emerald-800">목표마진율(%)</th>
+                                <th class="p-3 bg-emerald-50 text-emerald-800">역산 판매가</th>
+                                <th class="p-3">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody-common">
+                            <!-- 자바스크립트로 동적 생성 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- 2. 감자/고구마 전용 섹션 -->
+            <div id="section-potato" class="p-6 space-y-4 hidden">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-amber-50 p-4 rounded-xl border border-amber-200">
+                    <div class="flex items-center gap-3">
+                        <span class="font-bold text-amber-900">🥔 감자/고구마 수수료율:</span>
+                        <input type="number" id="potatoCommission" value="8.36" step="0.01" class="w-28 p-2 border rounded-lg text-right font-bold bg-white" oninput="calculateAll()">
+                        <span class="text-sm text-amber-700">%</span>
+                    </div>
+                    <button onclick="addRow('potato')" class="bg-amber-800 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-amber-700 transition">+ 감자/고구마 행 추가</button>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full border-collapse text-sm text-center">
+                        <thead>
+                            <tr class="bg-amber-100 text-amber-900 font-bold border-b">
+                                <th class="p-3">품목명</th>
+                                <th class="p-3">옵션</th>
+                                <th class="p-3">공급가 (원)</th>
+                                <th class="p-3 bg-blue-50 text-blue-800">최종판매가(쿠폰후)</th>
+                                <th class="p-3 bg-pink-50 text-pink-800">순마진 (원)</th>
+                                <th class="p-3 bg-pink-50 text-pink-800">마진율 (%)</th>
+                                <th class="p-3 bg-emerald-50 text-emerald-800">목표마진율(%)</th>
+                                <th class="p-3 bg-emerald-50 text-emerald-800">역산 판매가</th>
+                                <th class="p-3">관리</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tableBody-potato">
+                            <!-- 자바스크립트로 동적 생성 -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- 스크립트 로직 -->
+    <script>
+        let appData = {
+            commonCommission: 11.66,
+            potatoCommission: 8.36,
+            commonRows: [
+                { item: "특품명절선물", option: "최상급사과배", supply: 50000, sale: 73200, targetRate: 20.0 },
+                { item: "특품명절선물", option: "프리미엄혼합세트", supply: 40000, sale: 58500, targetRate: 20.0 }
+            ],
+            potatoRows: [
+                { item: "수지니감자", option: "특대형 10kg", supply: 25000, sale: 35000, targetRate: 15.0 },
+                { item: "꿀고구마", option: "한입 상자 5kg", supply: 18000, sale: 26000, targetRate: 18.0 }
+            ]
+        };
+
+        function loadData() {
+            const saved = localStorage.getItem('sanghun_fruit_calc');
+            if (saved) {
+                try {
+                    appData = JSON.parse(saved);
+                    document.getElementById('commonCommission').value = appData.commonCommission;
+                    document.getElementById('potatoCommission').value = appData.potatoCommission;
+                } catch(e) { console.error(e); }
+            }
+        }
+
+        function saveData() {
+            syncDataFromDOM();
+            localStorage.setItem('sanghun_fruit_calc', JSON.stringify(appData));
+            alert('훈이네 과일 계산기 데이터가 브라우저에 안전하게 저장되었습니다!');
+        }
+
+        function syncDataFromDOM() {
+            appData.commonCommission = parseFloat(document.getElementById('commonCommission').value) || 0;
+            appData.potatoCommission = parseFloat(document.getElementById('potatoCommission').value) || 0;
+            appData.commonRows = getRowsData('tableBody-common');
+            appData.potatoRows = getRowsData('tableBody-potato');
+        }
+
+        function getRowsData(tbodyId) {
+            const rows = document.querySelectorAll(`#${tbodyId} tr`);
+            let data = [];
+            rows.forEach(tr => {
+                data.push({
+                    item: tr.querySelector('.inp-item').value,
+                    option: tr.querySelector('.inp-option').value,
+                    supply: parseFloat(tr.querySelector('.inp-supply').value) || 0,
+                    sale: parseFloat(tr.querySelector('.inp-sale').value) || 0,
+                    targetRate: parseFloat(tr.querySelector('.inp-target').value) || 0
+                });
+            });
+            return data;
+        }
+
+        function renderTables() {
+            renderTableBody('common', appData.commonRows);
+            renderTableBody('potato', appData.potatoRows);
+            calculateAll();
+        }
+
+        function renderTableBody(type, rowsData) {
+            const tbody = document.getElementById(`tableBody-${type}`);
+            tbody.innerHTML = '';
+            rowsData.forEach((row, index) => {
+                const tr = document.createElement('tr');
+                tr.className = "border-b hover:bg-slate-50 transition";
+                tr.innerHTML = `
+                    <td class="p-2"><input type="text" value="${row.item}" class="inp-item w-full p-1.5 border rounded-lg text-center bg-white"></td>
+                    <td class="p-2"><input type="text" value="${row.option}" class="inp-option w-full p-1.5 border rounded-lg text-center bg-white"></td>
+                    <td class="p-2"><input type="number" value="${row.supply}" class="inp-supply w-full p-1.5 border rounded-lg text-right bg-white" oninput="calculateAll()"></td>
+                    <td class="p-2 bg-blue-50/50"><input type="number" value="${row.sale}" class="inp-sale w-full p-1.5 border rounded-lg text-right bg-white font-semibold text-blue-700" oninput="calculateAll()"></td>
+                    <td class="p-2 bg-pink-50/50 font-bold text-pink-600 out-margin">0원</td>
+                    <td class="p-2 bg-pink-50/50 font-bold text-red-500 out-rate">0.0%</td>
+                    <td class="p-2 bg-emerald-50/50"><input type="number" value="${row.targetRate}" step="0.1" class="inp-target w-full p-1.5 border rounded-lg text-right bg-white" oninput="calculateAll()"></td>
+                    <td class="p-2 bg-emerald-50/50 font-bold text-emerald-700 out-target-sale">0원</td>
+                    <td class="p-2"><button onclick="deleteRow('${type}', ${index})" class="text-slate-400 hover:text-red-500 font-bold px-2 py-1">✕</button></td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function addRow(type) {
+            syncDataFromDOM();
+            if(type === 'common') {
+                appData.commonRows.push({ item: "신규품목", option: "기본옵션", supply: 0, sale: 0, targetRate: 20.0 });
+            } else {
+                appData.potatoRows.push({ item: "신규감자/고구마", option: "기본옵션", supply: 0, sale: 0, targetRate: 15.0 });
+            }
+            renderTables();
+        }
+
+        function deleteRow(type, index) {
+            syncDataFromDOM();
+            if(type === 'common') {
+                appData.commonRows.splice(index, 1);
+            } else {
+                appData.potatoRows.splice(index, 1);
+            }
+            renderTables();
+        }
+
+        function calculateAll() {
+            const commonComm = (parseFloat(document.getElementById('commonCommission').value) || 0) / 100;
+            const potatoComm = (parseFloat(document.getElementById('potatoCommission').value) || 0) / 100;
+
+            let totalCount = 0;
+            let totalSales = 0;
+            let totalMargin = 0;
+            let sumMarginRate = 0;
+
+            document.querySelectorAll('#tableBody-common tr').forEach(tr => {
+                const res = computeRow(tr, commonComm);
+                totalCount++;
+                totalSales += res.sale;
+                totalMargin += res.marginWon;
+                sumMarginRate += res.marginRate;
+            });
+
+            document.querySelectorAll('#tableBody-potato tr').forEach(tr => {
+                const res = computeRow(tr, potatoComm);
+                totalCount++;
+                totalSales += res.sale;
+                totalMargin += res.marginWon;
+                sumMarginRate += res.marginRate;
+            });
+
+            document.getElementById('kpiTotalCount').textContent = totalCount + '개';
+            document.getElementById('kpiTotalSales').textContent = Math.round(totalSales).toLocaleString() + '원';
+            document.getElementById('kpiTotalMargin').textContent = Math.round(totalMargin).toLocaleString() + '원';
+            document.getElementById('kpiAvgMarginRate').textContent = (totalCount > 0 ? (sumMarginRate / totalCount) : 0).toFixed(1) + '%';
+        }
+
+        function computeRow(tr, commRate) {
+            const supply = parseFloat(tr.querySelector('.inp-supply').value) || 0;
+            const sale = parseFloat(tr.querySelector('.inp-sale').value) || 0;
+            const targetRate = (parseFloat(tr.querySelector('.inp-target').value) || 0) / 100;
+
+            const fee = sale * commRate;
+            const marginWon = sale - fee - supply;
+            const marginRate = sale > 0 ? (marginWon / sale) * 100 : 0;
+
+            tr.querySelector('.out-margin').textContent = Math.round(marginWon).toLocaleString() + '원';
+            tr.querySelector('.out-rate').textContent = marginRate.toFixed(1) + '%';
+
+            let targetSalePrice = 0;
+            const denom = (1 - commRate - targetRate);
+            if (denom > 0) {
+                targetSalePrice = supply / denom;
+            }
+            tr.querySelector('.out-target-sale').textContent = Math.round(targetSalePrice).toLocaleString() + '원';
+
+            return { sale, marginWon, marginRate };
+        }
+
+        function switchTab(tabName) {
+            const secCommon = document.getElementById('section-common');
+            const secPotato = document.getElementById('section-potato');
+            const btnCommon = document.getElementById('tabBtn-common');
+            const btnPotato = document.getElementById('tabBtn-potato');
+
+            if(tabName === 'common') {
+                secCommon.classList.remove('hidden');
+                secPotato.classList.add('hidden');
+                btnCommon.className = "pb-3 px-4 font-bold text-emerald-600 border-b-2 border-emerald-600 transition";
+                btnPotato.className = "pb-3 px-4 font-bold text-slate-400 hover:text-slate-600 transition";
+            } else {
+                secCommon.classList.add('hidden');
+                secPotato.classList.remove('hidden');
+                btnPotato.className = "pb-3 px-4 font-bold text-amber-600 border-b-2 border-amber-600 transition";
+                btnCommon.className = "pb-3 px-4 font-bold text-slate-400 hover:text-slate-600 transition";
+            }
+        }
+
+        function exportToCSV() {
+            syncDataFromDOM();
+            let csv = '\uFEFF품목명,옵션,공급가,최종판매가,순마진,마진율,목표마진율,역산판매가\n';
+
+            appData.commonRows.forEach(r => {
+                const fee = r.sale * (appData.commonCommission / 100);
+                const margin = r.sale - fee - r.supply;
+                const rate = r.sale > 0 ? (margin / r.sale) * 100 : 0;
+                const targetSale = (1 - appData.commonCommission / 100 - r.targetRate / 100) > 0
+                    ? r.supply / (1 - appData.commonCommission / 100 - r.targetRate / 100)
+                    : 0;
+                csv += `[공통]${r.item},${r.option},${r.supply},${r.sale},${Math.round(margin)},${rate.toFixed(1)}%,${r.targetRate}%,${Math.round(targetSale)}\n`;
+            });
+
+            appData.potatoRows.forEach(r => {
+                const fee = r.sale * (appData.potatoCommission / 100);
+                const margin = r.sale - fee - r.supply;
+                const rate = r.sale > 0 ? (margin / r.sale) * 100 : 0;
+                const targetSale = (1 - appData.potatoCommission / 100 - r.targetRate / 100) > 0
+                    ? r.supply / (1 - appData.potatoCommission / 100 - r.targetRate / 100)
+                    : 0;
+                csv += `[감자고구마]${r.item},${r.option},${r.supply},${r.sale},${Math.round(margin)},${rate.toFixed(1)}%,${r.targetRate}%,${Math.round(targetSale)}\n`;
+            });
+
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = '훈이네과일_마진정산내역.csv';
+            a.click();
+        }
+
+        window.onload = function() {
+            loadData();
+            renderTables();
+        };
+    </script>
+</body>
+</html>
